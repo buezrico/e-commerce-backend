@@ -48,6 +48,27 @@ router.post("/", async (req, res) => {
 
   res.send(user);
 });
+router.post("/register", async (req, res) => {
+  // const hashedPassword = await bcrypt.hash(req.body.password, 10);
+  let user = new User({
+    name: req.body.name,
+    email: req.body.email,
+    passwordHash: await bcrypt.hash(req.body.password, 10),
+    isAdmin: req.body.isAdmin,
+    street: req.body.street,
+    apartment: req.body.apartment,
+    city: req.body.city,
+    zip: req.body.zip,
+    country: req.body.country,
+    phone: req.body.phone,
+  });
+
+  user = await user.save();
+
+  if (!user) return res.status(400).send("User can not be created");
+
+  res.send(user);
+});
 
 router.post("/login", async (req, res) => {
   const user = await User.findOne({ email: req.body.email });
@@ -61,6 +82,7 @@ router.post("/login", async (req, res) => {
     const token = jwt.sign(
       {
         userId: user.id,
+        isAdmin: user.isAdmin,
       },
       JWT_SECRET,
       { expiresIn: "1d" }
