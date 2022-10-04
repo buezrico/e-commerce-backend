@@ -72,7 +72,7 @@ router.post("/register", async (req, res) => {
 
 router.post("/login", async (req, res) => {
   const user = await User.findOne({ email: req.body.email });
-  const JWT_SECRET = process.env.JWT_SECRET;
+  const secret = process.env.JWT_SECRET;
 
   if (!user) {
     return res.status(400).send("Email does not exist");
@@ -84,13 +84,41 @@ router.post("/login", async (req, res) => {
         userId: user.id,
         isAdmin: user.isAdmin,
       },
-      JWT_SECRET,
+      secret,
       { expiresIn: "1d" }
     );
     return res.status(200).send({ user: user.email, token: token });
   } else {
     return res.status(400).send("Email and Password Incorrect");
   }
+});
+
+router.get("/get/count", async (req, res) => {
+  const userCount = await User.countDocuments();
+
+  if (!userCount) {
+    return res.status(500).json({ success: false });
+  }
+
+  return res.send({ userCount: userCount });
+});
+
+router.delete("/:id", async (req, res) => {
+  User.findByIdAndRemove(req.params.id)
+    .then((user) => {
+      if (user) {
+        return res
+          .status(200)
+          .json({ success: true, message: "user deleted!!" });
+      } else {
+        return res
+          .status(404)
+          .json({ success: false, message: "delete failed" });
+      }
+    })
+    .catch((err) => {
+      return res.status(500);
+    });
 });
 
 module.exports = router;
