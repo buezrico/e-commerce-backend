@@ -63,8 +63,11 @@ router.put("/:id", async (req, res) => {
 
 router.delete("/:id", (req, res) => {
   Order.findByIdAndRemove(req.params.id)
-    .then((order) => {
+    .then(async (order) => {
       if (order) {
+        await order.orderItems.map(async (orderItem) => {
+          await OrderItem.findByIdAndRemove(orderItem);
+        });
         return res
           .status(200)
           .json({ success: true, message: "order deleted successfully" });
@@ -95,6 +98,22 @@ router.post("/", async (req, res) => {
 
   const orderItemsIdsResolved = await orderItemsIds;
 
+  const totalPrices = await Promise.all(
+    orderItemsIdsResolved.map(async (orderItemsId) => {
+      const orderItem = await OrderItem.findById(orderItemsId).populate(
+        "product",
+        "price"
+      );
+      const totalPrice = orderItem.product.price * orderItem.quantity;
+      console.log(orderItem.product.price);
+      return totalPrice;
+    })
+  );
+
+  const totalPrice = totalPrices.reduce((a, b) => a + b, 0);
+
+  console.log(totalPrices);
+
   let order = new Order({
     orderItems: orderItemsIdsResolved,
     shippingAddress1: req.body.shippingAddress1,
@@ -104,7 +123,7 @@ router.post("/", async (req, res) => {
     country: req.body.country,
     phone: req.body.phone,
     status: req.body.status,
-    totalPrice: req.body.totalPrice,
+    totalPrice: totalPrice,
     user: req.body.user,
   });
 
@@ -115,6 +134,28 @@ router.post("/", async (req, res) => {
   }
 
   res.send(order);
+});
+
+router.get("/get/totalsales", async (req, res) => {
+  const totalSales = await Order.aggregate([
+    { $group: { _id: null, totalsales: { $sum: "$totalPrice" } } },
+  ]);
+
+  if (!totalSales) {
+    return res.status(400).send("The order sales can not be genrated");
+  }
+
+  res.send({ totalsales: totalSales.pop().totalsales });
+});
+
+router.get("/get/count", async (req, res) => {
+  const orderCount = await Order.countDocuments();
+
+  if (!orderCount) {
+    return res.status(400).json({ success: false, message: "Error" });
+  }
+
+  res.send({ orderCount: orderCount });
 });
 
 module.exports = router;
